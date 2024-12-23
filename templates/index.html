@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeChat - AI Development Assistant</title>
+    
+    <!-- Fonts and Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fira+Code:wght@400;500&display=swap">
+    
+    <!-- Syntax Highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="app-brand">
+                    <i class="fas fa-code"></i>
+                    <h2>CodeChat</h2>
+                </div>
+                <div class="sidebar-actions">
+                    <button id="new-conversation-btn" title="New Conversation" class="icon-btn primary">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <button id="toggle-sidebar" title="Toggle Sidebar" class="icon-btn">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Conversation List -->
+            <div id="conversation-list">
+                {% for conv in conversations %}
+                <div class="conversation-item" data-conv-id="{{ conv.id }}">
+                    <div class="conversation-info">
+                        <div class="conversation-name">
+                            <span class="name-text">{{ conv.name }}</span>
+                            <input type="text" class="name-edit" value="{{ conv.name }}" style="display: none;">
+                        </div>
+                        <small class="conversation-timestamp">{{ conv.formatted_time }}</small>
+                    </div>
+                    <div class="conversation-actions">
+                        <button class="icon-btn small rename-btn" title="Rename">
+                            <i class="fas fa-pencil"></i>
+                        </button>
+                        <button class="icon-btn small delete-btn" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="header">
+                <div class="header-title">
+                    <h1>CodeChat</h1>
+                    <span class="subtitle">AI Development Assistant</span>
+                </div>
+                <div class="header-actions">
+                    <button id="create-context-window" title="Create Context Window" class="icon-btn">
+                        <i class="fas fa-window-restore"></i>
+                    </button>
+                    <button id="toggle-theme" title="Toggle Theme" class="icon-btn">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Conversation Container -->
+            <div id="conversation-container">
+                <!-- Messages will be dynamically inserted here -->
+                <div class="welcome-screen">
+                    <i class="fas fa-code-branch welcome-icon"></i>
+                    <h2>Welcome to CodeChat</h2>
+                    <p>Start a new conversation to begin coding with AI assistance.</p>
+                    <button onclick="newConversationBtn.click()" class="primary-btn">
+                        <i class="fas fa-plus"></i>
+                        New Conversation
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Code Input Section -->
+            <div class="input-section">
+                <form id="codeForm" enctype="multipart/form-data">
+                    <input type="hidden" id="current-conversation-id" name="conversation_id">
+                    
+                    <div class="prompt-area">
+                        <textarea 
+                            id="prompt" 
+                            name="prompt" 
+                            placeholder="Enter your code prompt or instructions..."
+                            rows="6"
+                            spellcheck="false"
+                        ></textarea>
+                        
+                        <div class="input-actions">
+                            <div class="file-upload">
+                                <input 
+                                    type="file" 
+                                    id="file" 
+                                    name="file" 
+                                    class="file-input"
+                                    accept=".txt,.js,.py,.html,.css,.json,.xml,.yaml,.md"
+                                />
+                                <label for="file" class="file-label">
+                                    <i class="fas fa-upload"></i> 
+                                    <span id="file-name">Attach File</span>
+                                </label>
+                            </div>
+                            
+                            <button type="submit" id="submitBtn" class="primary-btn">
+                                <i class="fas fa-paper-plane"></i>
+                                <span>Send</span>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Token Counter -->
+            <div class="token-counter">
+                <div class="token-info">
+                    <span>Input Tokens: <span id="input-tokens">0</span></span>
+                    <span>Output Tokens: <span id="output-tokens">0</span></span>
+                    <span>Total Tokens: <span id="total-tokens">0</span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Templates -->
+    <template id="context-window-template">
+        <div class="context-window">
+            <div class="context-window-header">
+                <div class="window-title">
+                    <i class="fas fa-code"></i>
+                    <span>Code Preview</span>
+                </div>
+                <div class="window-actions">
+                    <button class="context-copy-btn icon-btn small" title="Copy Code">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                    <button class="context-close-btn icon-btn small" title="Close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="context-window-content">
+                <!-- Code content will be inserted here -->
+            </div>
+            <div class="context-window-footer">
+                <span class="language-indicator"></span>
+                <span class="copy-indicator"></span>
+            </div>
+        </div>
+    </template>
+
+    <template id="code-artifact-template">
+        <div class="code-artifact">
+            <div class="artifact-header">
+                <span class="language-badge"></span>
+                <div class="artifact-actions">
+                    <button class="preview-btn icon-btn small" title="Expand">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                    <button class="copy-btn icon-btn small" title="Copy">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+            </div>
+            <pre><code></code></pre>
+        </div>
+    </template>
+
+    <template id="confirm-dialog-template">
+        <div class="dialog-overlay">
+            <div class="dialog">
+                <div class="dialog-header">
+                    <h3></h3>
+                    <button class="close-btn icon-btn small">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="dialog-content"></div>
+                <div class="dialog-actions">
+                    <button class="cancel-btn secondary-btn">Cancel</button>
+                    <button class="confirm-btn primary-btn">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Processing Overlay -->
+    <div id="processing-overlay" class="processing-overlay">
+        <div class="processing-content">
+            <div class="processing-spinner"></div>
+            <span>Processing request...</span>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markup.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-jsx.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-tsx.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+# Virtual Environment
+venv/
+.venv/
+env/
+.env/
+ENV/
+
+# Environment Variables
+.env
+*.env
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# SQLite Databases
+*.db
+
+# VS Code settings
+.vscode/
+
+# PyCharm settings
+.idea/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Logs
+*.log
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# Specific to this project
+conversations.db
