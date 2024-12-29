@@ -1,6 +1,7 @@
 from flask import Flask, request, render_template, jsonify, session, flash
 import os
 import anthropic
+import json
 from dotenv import load_dotenv
 from database import ConversationDatabase
 from typing import List, Dict, Any
@@ -73,7 +74,7 @@ def format_timestamp(timestamp: str) -> str:
 
 def prepare_conversation_context(conversation_id: int) -> Dict[str, Any]:
     """
-    Retrieve and prepare conversation context for Claude API with improved organization
+    Retrieve and prepare conversation context for Claude API with improved token optimization
     """
     messages = conversation_db.get_conversation_messages(conversation_id)
     contexts = conversation_db.get_project_contexts(conversation_id)
@@ -95,17 +96,115 @@ def prepare_conversation_context(conversation_id: int) -> Dict[str, Any]:
     if contexts:
         system_context += "\n\nProject Context Files:\n"
         for context in contexts:
-            system_context += f"\n# File: {context['file_path']}\n{context['file_content']}\n"
+            # Compress the file content before adding to context
+            compressed_content = compress_file_content(
+                context['file_path'],
+                context['file_content']
+            )
+            system_context += f"\n# File: {context['file_path']}\n{compressed_content}\n"
     
     if code_artifacts:
         system_context += "\n\nCode Artifacts:\n"
         for artifact in code_artifacts:
-            system_context += f"\n# Language: {artifact['language']}\n{artifact['content']}\n"
+            compressed_content = compress_file_content(
+                f"artifact.{artifact['language']}",
+                artifact['content']
+            )
+            system_context += f"\n# Language: {artifact['language']}\n{compressed_content}\n"
     
     return {
         "system": system_context,
         "messages": [{"role": msg['role'], "content": msg['content']} for msg in messages]
     }
+
+def preprocess_code_content(content: str) -> str:
+    """
+    Preprocess code content to reduce token usage while maintaining context.
+    
+    This function:
+    1. Removes empty lines
+    2. Strips whitespace
+    3. Removes comments (while keeping docstrings)
+    4. Compresses multiple spaces
+    """
+    import re
+    from textwrap import dedent
+    
+    # Split into lines for processing
+    lines = content.split('\n')
+    processed_lines = []
+    
+    in_multiline_comment = False
+    in_docstring = False
+    docstring_quotes = None
+    
+    for line in lines:
+        # Skip empty lines
+        if not line.strip():
+            continue
+            
+        # Handle docstrings
+        if not in_docstring and not in_multiline_comment:
+            docstring_start = re.match(r'\s*(\'\'\'|""").*', line)
+            if docstring_start:
+                in_docstring = True
+                docstring_quotes = docstring_start.group(1)
+                processed_lines.append(line.strip())
+                continue
+                
+        if in_docstring:
+            processed_lines.append(line.strip())
+            if line.strip().endswith(docstring_quotes):
+                in_docstring = False
+            continue
+            
+        # Skip comment lines
+        if re.match(r'^\s*#.*$', line):
+            continue
+            
+        # Remove inline comments while preserving strings
+        if not in_multiline_comment:
+            # Handle strings first
+            parts = []
+            last_end = 0
+            in_string = False
+            string_char = None
+            
+            for i, char in enumerate(line):
+                if char in '"\'':
+                    if not in_string:
+                        in_string = True
+                        string_char = char
+                    elif char == string_char:
+                        in_string = False
+                        
+                if char == '#' and not in_string:
+                    line = line[:i].rstrip()
+                    break
+                    
+        # Remove extra whitespace
+        line = ' '.join(line.split())
+        
+        if line:
+            processed_lines.append(line)
+            
+    # Join lines and dedent
+    processed_content = '\n'.join(processed_lines)
+    processed_content = dedent(processed_content)
+    
+    return processed_content
+
+def compress_file_content(file_path: str, content: str) -> str:
+    """
+    Compress file content based on file type while maintaining readability.
+    """
+    ext = file_path.split('.')[-1].lower()
+    
+    # Don't compress certain file types
+    if ext in ['json', 'yaml', 'yml']:
+        return content
+        
+    return preprocess_code_content(content)
 
 @app.route("/")
 def index():
@@ -227,11 +326,27 @@ def process():
         return jsonify({"error": "Please provide a prompt or attach a file."}), 400
 
     try:
-        # Handle file upload
+        # Handle file upload with compression
         if file:
             filename = file.filename
             file_content = file.read().decode("utf-8")
-            conversation_db.add_project_context(conversation_id, filename, file_content)
+            
+            # Compress file content before storing
+            compressed_content = compress_file_content(filename, file_content)
+            
+            # Store original file size and compressed size in metadata
+            metadata = {
+                "original_size": len(file_content),
+                "compressed_size": len(compressed_content),
+                "compression_ratio": round(len(compressed_content) / len(file_content) * 100, 2)
+            }
+            
+            conversation_db.add_project_context(
+                conversation_id,
+                filename,
+                compressed_content,
+                metadata=json.dumps(metadata)
+            )
 
         # Prepare and send request to Claude API
         context = prepare_conversation_context(conversation_id)

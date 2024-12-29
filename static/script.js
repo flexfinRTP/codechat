@@ -689,18 +689,37 @@ function initializeEventListeners() {
         }
     });
 
-    fileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            fileNameSpan.textContent = file.name;
-            // Add file type indicator
-            const fileType = file.name.split('.').pop().toLowerCase();
-            fileNameSpan.className = `file-name file-type-${fileType}`;
-        } else {
-            fileNameSpan.textContent = 'Attach File';
-            fileNameSpan.className = 'file-name';
+    // Add this to the file input change handler in script.js
+fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        fileNameSpan.textContent = file.name;
+        // Add file type indicator
+        const fileType = file.name.split('.').pop().toLowerCase();
+        fileNameSpan.className = `file-name file-type-${fileType}`;
+        
+        // Show file size
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        const sizeIndicator = document.createElement('span');
+        sizeIndicator.className = 'file-size';
+        sizeIndicator.textContent = `${sizeMB}MB`;
+        fileNameSpan.appendChild(sizeIndicator);
+        
+        // Add warning if file is large
+        if (file.size > 1024 * 1024) { // 1MB
+            const warning = document.createElement('span');
+            warning.className = 'file-warning';
+            warning.innerHTML = `
+                <i class="fas fa-info-circle"></i>
+                Large file will be compressed to optimize token usage
+            `;
+            fileNameSpan.appendChild(warning);
         }
-    });
+    } else {
+        fileNameSpan.textContent = 'Attach File';
+        fileNameSpan.className = 'file-name';
+    }
+});
 
     codeForm.addEventListener('submit', handleFormSubmit);
     

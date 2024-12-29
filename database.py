@@ -80,7 +80,7 @@ class ConversationDatabase:
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
-                
+
                 # Migration steps for code_artifacts table
                 migrations = [
                     {
@@ -92,6 +92,15 @@ class ConversationDatabase:
                         ]
                     }
                 ]
+
+                # Add metadata column to project_contexts if it doesn't exist
+                self._safe_add_column(
+                    cursor,
+                    'project_contexts',
+                    'metadata',
+                    'TEXT',
+                    "'{}'"
+                )
 
                 # Perform migrations
                 for table_migration in migrations:

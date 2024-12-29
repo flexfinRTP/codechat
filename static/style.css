@@ -709,6 +709,25 @@ textarea:focus {
     .file-upload {
         width: 100%;
     }
+
+    .file-size {
+        margin-left: 8px;
+        font-size: 0.8rem;
+        color: var(--secondary-color);
+    }
+    
+    .file-warning {
+        margin-left: 8px;
+        font-size: 0.8rem;
+        color: var(--error-color);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .file-warning i {
+        font-size: 0.9rem;
+    }
 }
 
 /* Animations */
