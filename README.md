@@ -6,13 +6,36 @@ An intelligent code assistant powered by Claude AI that helps developers with co
 
 ## Features
 
-- Real-time code assistance and suggestions
-- File upload support for code context
-- Conversation history and management
-- Project context preservation
-- Syntax highlighting and code formatting
-- Responsive UI with sidebar navigation
-- Context windows for reference
+1. Core Conversation Management:
+- Create, rename, and delete conversations
+- Persistent storage of conversations in SQLite database
+- Conversation history with timestamps
+- Token tracking and management
+
+2. UI/UX Components:
+- Collapsible sidebar with conversation list
+- Dark/light theme support
+- Code syntax highlighting with PrismJS
+- Drag-and-drop file upload
+- File attachment support
+- Responsive design for different screen sizes
+
+3. Code Handling:
+- Code block detection and extraction
+- Language detection for code snippets
+- Code preview in separate windows
+- Copy-to-clipboard functionality
+- Code artifact storage and retrieval
+
+4. Context Management:
+- Project context file uploads
+- Context preservation across conversations
+- Context window for code preview
+
+5. Security & Error Handling:
+- API key management
+- Basic error handling and user feedback
+- Input validation
 
 ## Prerequisites
 

@@ -438,40 +438,57 @@ textarea:focus {
 
 /* Code Artifacts */
 .code-artifact {
-    background-color: var(--code-bg);
+    margin: var(--spacing-md) 0;
     border-radius: var(--radius-md);
     overflow: hidden;
+    background-color: var(--code-bg);
+}
+
+.code-artifact .file-path {
+    color: var(--secondary-color);
+    font-size: 0.9rem;
+    margin: 0 var(--spacing-md);
+    font-family: var(--font-code);
+    flex-grow: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .artifact-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
     padding: var(--spacing-sm) var(--spacing-md);
     background-color: rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .language-badge {
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    background-color: var(--primary-color);
+    color: white;
     font-size: 0.8rem;
-    color: #E0E0E0;
     font-family: var(--font-code);
 }
 
 .artifact-actions {
     display: flex;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
 }
 
 .code-artifact pre {
     margin: 0;
     padding: var(--spacing-md);
     overflow-x: auto;
+    background-color: var(--code-bg) !important;
 }
 
 .code-artifact code {
     font-family: var(--font-code);
     font-size: 0.9rem;
     line-height: 1.5;
+    tab-size: 4;
 }
 
 /* Context Window */
@@ -570,11 +587,24 @@ textarea:focus {
     border-top: 1px solid var(--border-color);
 }
 
+.token-warning {
+    color: var(--error-color);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.token-warning i {
+    font-size: 0.9rem;
+}
+
 .token-info {
     display: flex;
-    justify-content: space-around;
-    font-size: 0.9rem;
-    color: var(--secondary-color);
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background-color: var(--card-bg);
+    border-radius: var(--radius-sm);
 }
 
 .token.comment,
