@@ -4,6 +4,8 @@ A local AI coding agent powered by Ollama (Qwen 3.5 9B) that works directly on y
 
 ![CodeChat UI](codechat1.png)
 
+![CodeChat UI - File Explorer](codechat2.png)
+
 ## Why This Exists
 
 - **No cloud, no API keys** — runs 100% local on Ollama
