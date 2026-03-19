@@ -1,128 +1,99 @@
-give a formatted readme based on the code.Here's a formatted README.md for your project:
+# CodeChat Agent
 
-# CodeChat - AI Code Assistant
+A local AI coding agent powered by Ollama (Qwen 3.5 9B) that works directly on your filesystem. Pick any repo, browse its files, feed them as context, and let the AI read, reason about, and write code changes straight to disk.
 
-An intelligent code assistant powered by Claude AI that helps developers with code analysis, generation, and improvements.
+![CodeChat UI](codechat1.png)
 
-## Features
+![CodeChat UI - File Explorer](codechat2.png)
 
-1. Core Conversation Management:
-- Create, rename, and delete conversations
-- Persistent storage of conversations in SQLite database
-- Conversation history with timestamps
-- Token tracking and management
+## Why This Exists
 
-2. UI/UX Components:
-- Collapsible sidebar with conversation list
-- Dark/light theme support
-- Code syntax highlighting with PrismJS
-- Drag-and-drop file upload
-- File attachment support
-- Responsive design for different screen sizes
+- **No cloud, no API keys** — runs 100% local on Ollama
+- **Full filesystem access** — browse drives, navigate folders, open any file
+- **Real agent workflow** — AI sees your project tree, reads files you select, and writes changes back with one click
+- **Qwen 3.5 9B optimized** — strips `<think>` tokens, structured agent prompts, tuned for local models
+- **Context you control** — right-click files or entire folders to load them into the conversation; remove anytime
 
-3. Code Handling:
-- Code block detection and extraction
-- Language detection for code snippets
-- Code preview in separate windows
-- Copy-to-clipboard functionality
-- Code artifact storage and retrieval
+## Core Capabilities
 
-4. Context Management:
-- Project context file uploads
-- Context preservation across conversations
-- Context window for code preview
+- **Workspace selection** — folder picker with drive listing, sets the working directory for the AI
+- **File explorer** — sidebar tree with types, sizes, click-to-view, right-click to add context
+- **Folder context** — right-click a folder to recursively add all its text files (up to 50, skips binaries)
+- **Apply to disk** — AI code blocks with file paths get an "Apply" button that writes directly
+- **Image viewer** — click any image in the file tree for a lightbox preview; inline images in chat
+- **Markdown chat** — full Markdown rendering with syntax-highlighted code blocks, copy buttons
+- **Persistent history** — SQLite stores all conversations, messages, contexts, artifacts, and token counts
+- **Dark/light theme** — dark by default, one-click toggle
 
-5. Security & Error Handling:
-- API key management
-- Basic error handling and user feedback
-- Input validation
+## Setup
 
-## Prerequisites
-
-- Python 3.11+
-- Anthropic API Key
-
-## Installation
-
-1. Clone this repository:
-```bash
-git clone https://github.com/yourusername/codechat.git
-cd codechat
-```
-
-2. Create and activate virtual environment:
 ```bash
 python -m venv venv
-# Windows
-venv\Scripts\activate
-# Unix/MacOS
-source venv/bin/activate
-```
-
-3. Install dependencies:
-```bash
+venv\Scripts\activate        # Windows
+# source venv/bin/activate   # macOS/Linux
 pip install -r requirements.txt
-```
-
-4. Create a `.env` file in the project root and add your Anthropic API key:
-```
-ANTHROPIC_API_KEY=your_api_key_here
-```
-
-## Usage
-
-1. delete venv folder
-
-2. python -m venv venv
-
-3. venv\Scripts\activate
-
-4. pip install -r requirements.txt
-
-5. Start the application:
-```bash
 python app.py
 ```
 
-6. Open your browser and navigate to `http://localhost:5000`
+Open `http://localhost:5000`
 
-7. Features:
-   - Create new conversations using the "+" button
-   - Upload code files for context
-   - Enter prompts for code assistance
-   - View conversation history in the sidebar
-   - Create context windows for reference
-   - Copy responses to clipboard
+Requires [Ollama](https://ollama.com) running locally with a model pulled:
+
+```bash
+ollama pull qwen3.5:9b
+```
+
+Override defaults with a `.env` file:
+
+```
+OLLAMA_BASE_URL=http://localhost:11434/v1
+OLLAMA_MODEL=qwen3.5:9b
+```
 
 ## Project Structure
 
 ```
 codechat/
-├── app.py              # Main Flask application
-├── database.py         # SQLite database operations
+├── app.py              # Flask backend — endpoints, agent logic, file system access
+├── database.py         # SQLite — conversations, messages, contexts, artifacts
 ├── static/
-│   ├── script.js      # Frontend JavaScript
-│   └── style.css      # CSS styles
+│   ├── script.js       # Frontend — file tree, workspace, chat, lightbox
+│   └── style.css       # Styles — themes, file explorer, modals
 ├── templates/
-│   └── index.html     # Main HTML template
-├── requirements.txt    # Python dependencies
-└── conversations.db    # SQLite database
+│   └── index.html      # HTML layout, modals, templates
+├── requirements.txt
+├── CHANGELOG.md
+└── README.md
 ```
 
-## Dependencies
+## API Endpoints
 
-- Flask
-- Anthropic API
-- SQLite
-- Python-dotenv
-- Additional requirements in requirements.txt
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/` | Main UI |
+| `POST` | `/process` | Send prompt to AI |
+| `POST` | `/new-conversation` | Create conversation (with optional workspace) |
+| `GET` | `/load-conversation/<id>` | Load conversation |
+| `POST` | `/rename-conversation` | Rename |
+| `POST` | `/delete-conversation` | Soft-delete |
+| `GET` | `/drives` | List available drives |
+| `GET` | `/browse?path=...` | Browse directory |
+| `GET` | `/read-file?path=...` | Read file content |
+| `POST` | `/write-file` | Write content to file |
+| `POST` | `/set-workspace` | Set workspace for conversation |
+| `POST` | `/add-file-context` | Add file to context |
+| `POST` | `/add-folder-context` | Add folder (recursive) to context |
+| `POST` | `/remove-file-context` | Remove from context |
+| `GET` | `/workspace-image?path=...` | Serve image file |
+
+## Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `Ctrl+N` | New conversation |
+| `Ctrl+/` | Toggle sidebar |
+| `Esc` | Close modals/lightbox |
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments
-
-- Anthropic for the Claude AI API
-- Flask framework
-- SQLite database
+MIT

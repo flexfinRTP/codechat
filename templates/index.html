@@ -3,13 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CodeChat - AI Development Assistant</title>
-    
-    <!-- Fonts and Icons -->
+    <title>CodeChat Agent</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fira+Code:wght@400;500&display=swap">
-    
-    <!-- Syntax Highlighting -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
@@ -19,8 +15,9 @@
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="app-brand">
-                    <i class="fas fa-code"></i>
+                    <i class="fas fa-terminal"></i>
                     <h2>CodeChat</h2>
+                    <span class="agent-badge">Agent</span>
                 </div>
                 <div class="sidebar-actions">
                     <button id="new-conversation-btn" title="New Conversation" class="icon-btn primary">
@@ -31,112 +28,238 @@
                     </button>
                 </div>
             </div>
-            
-            <!-- Conversation List -->
-            <div id="conversation-list">
-                {% for conv in conversations %}
-                <div class="conversation-item" data-conv-id="{{ conv.id }}">
-                    <div class="conversation-info">
-                        <div class="conversation-name">
-                            <span class="name-text">{{ conv.name }}</span>
-                            <input type="text" class="name-edit" value="{{ conv.name }}" style="display: none;">
+
+            <!-- Workspace Selector -->
+            <div class="workspace-selector" id="workspace-selector">
+                <div class="workspace-input-row">
+                    <input type="text" id="workspace-path-input" placeholder="Select workspace folder..."
+                           class="workspace-path-input" readonly>
+                    <button id="browse-workspace-btn" class="icon-btn" title="Browse Folders">
+                        <i class="fas fa-folder-open"></i>
+                    </button>
+                    <button id="clear-workspace-btn" class="icon-btn small" title="Clear Workspace" style="display:none;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sidebar Tabs -->
+            <div class="sidebar-tabs">
+                <button class="sidebar-tab active" data-tab="chats">
+                    <i class="fas fa-comments"></i>
+                    <span>Chats</span>
+                </button>
+                <button class="sidebar-tab" data-tab="files">
+                    <i class="fas fa-folder-tree"></i>
+                    <span>Files</span>
+                </button>
+                <button class="sidebar-tab" data-tab="context">
+                    <i class="fas fa-layer-group"></i>
+                    <span>Context</span>
+                </button>
+            </div>
+
+            <!-- Tab Content: Chats -->
+            <div class="tab-content active" id="tab-chats">
+                <div id="conversation-list">
+                    {% for conv in conversations %}
+                    <div class="conversation-item" data-conv-id="{{ conv.id }}" data-workspace="{{ conv.workspace_path or '' }}">
+                        <div class="conversation-info">
+                            <div class="conversation-name">
+                                <span class="name-text">{{ conv.name }}</span>
+                                <input type="text" class="name-edit" value="{{ conv.name }}" style="display: none;">
+                            </div>
+                            <small class="conversation-timestamp">{{ conv.formatted_time }}</small>
+                            {% if conv.workspace_path %}
+                            <small class="conversation-workspace"><i class="fas fa-folder"></i> {{ conv.workspace_path.split('\\')[-1] if '\\' in (conv.workspace_path or '') else (conv.workspace_path or '').split('/')[-1] }}</small>
+                            {% endif %}
                         </div>
-                        <small class="conversation-timestamp">{{ conv.formatted_time }}</small>
+                        <div class="conversation-actions">
+                            <button class="icon-btn small rename-btn" title="Rename">
+                                <i class="fas fa-pencil"></i>
+                            </button>
+                            <button class="icon-btn small delete-btn" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div class="conversation-actions">
-                        <button class="icon-btn small rename-btn" title="Rename">
-                            <i class="fas fa-pencil"></i>
-                        </button>
-                        <button class="icon-btn small delete-btn" title="Delete">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Tab Content: Files -->
+            <div class="tab-content" id="tab-files">
+                <div class="file-tree-header">
+                    <div class="file-tree-breadcrumb" id="file-breadcrumb"></div>
+                    <button id="file-tree-up" class="icon-btn small" title="Go Up">
+                        <i class="fas fa-arrow-up"></i>
+                    </button>
+                </div>
+                <div id="file-tree" class="file-tree">
+                    <div class="file-tree-empty">
+                        <i class="fas fa-folder-open"></i>
+                        <p>Select a workspace to browse files</p>
                     </div>
                 </div>
-                {% endfor %}
+            </div>
+
+            <!-- Tab Content: Context -->
+            <div class="tab-content" id="tab-context">
+                <div id="context-file-list" class="context-file-list">
+                    <div class="context-empty">
+                        <i class="fas fa-layer-group"></i>
+                        <p>No files in context</p>
+                        <small>Add files from the Files tab</small>
+                    </div>
+                </div>
             </div>
         </div>
-        
+
         <!-- Main Content -->
         <div class="main-content">
             <div class="header">
                 <div class="header-title">
-                    <h1>CodeChat</h1>
-                    <span class="subtitle">AI Development Assistant</span>
+                    <h1>CodeChat <span class="model-badge" title="Active LLM model">{{ model_name }}</span></h1>
+                    <span class="workspace-badge" id="workspace-badge" style="display:none;"
+                          title="Active workspace"></span>
                 </div>
-                <div class="header-actions">
-                    <button id="create-context-window" title="Create Context Window" class="icon-btn">
-                        <i class="fas fa-window-restore"></i>
-                    </button>
-                    <button id="toggle-theme" title="Toggle Theme" class="icon-btn">
-                        <i class="fas fa-moon"></i>
-                    </button>
+                <div class="header-right">
+                    <div class="token-info">
+                        <span class="token-stat" title="Input Tokens"><i class="fas fa-arrow-up"></i> <span id="input-tokens">0</span></span>
+                        <span class="token-stat" title="Output Tokens"><i class="fas fa-arrow-down"></i> <span id="output-tokens">0</span></span>
+                        <span class="token-stat total" title="Total Tokens"><i class="fas fa-coins"></i> <span id="total-tokens">0</span></span>
+                    </div>
+                    <div class="header-actions">
+                        <button id="toggle-theme" title="Toggle Theme" class="icon-btn">
+                            <i class="fas fa-moon"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
-            
+
             <!-- Conversation Container -->
             <div id="conversation-container">
-                <!-- Messages will be dynamically inserted here -->
                 <div class="welcome-screen">
-                    <i class="fas fa-code-branch welcome-icon"></i>
-                    <h2>Welcome to CodeChat</h2>
-                    <p>Start a new conversation to begin coding with AI assistance.</p>
-                    <button onclick="newConversationBtn.click()" class="primary-btn">
-                        <i class="fas fa-plus"></i>
-                        New Conversation
-                    </button>
+                    <i class="fas fa-terminal welcome-icon"></i>
+                    <h2>CodeChat Agent</h2>
+                    <p>Select a workspace and start coding with your AI agent.</p>
+                    <div class="welcome-actions">
+                        <button onclick="document.getElementById('browse-workspace-btn').click()" class="primary-btn">
+                            <i class="fas fa-folder-open"></i> Select Workspace
+                        </button>
+                        <button onclick="document.getElementById('new-conversation-btn').click()" class="secondary-btn">
+                            <i class="fas fa-plus"></i> New Chat
+                        </button>
+                    </div>
                 </div>
             </div>
-            
-            <!-- Code Input Section -->
+
+            <!-- Input Section -->
             <div class="input-section">
                 <form id="codeForm" enctype="multipart/form-data">
                     <input type="hidden" id="current-conversation-id" name="conversation_id">
-                    
                     <div class="prompt-area">
-                        <textarea 
-                            id="prompt" 
-                            name="prompt" 
-                            placeholder="Enter your code prompt or instructions..."
-                            rows="6"
-                            spellcheck="false"
-                        ></textarea>
-                        
+                        <div class="prompt-row">
+                            <textarea
+                                id="prompt"
+                                name="prompt"
+                                placeholder="Ask the agent to analyze, create, or modify code..."
+                                rows="3"
+                                spellcheck="false"
+                            ></textarea>
+                            <button type="submit" id="submitBtn" class="send-btn" title="Send">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
                         <div class="input-actions">
                             <div class="file-upload">
-                                <input 
-                                    type="file" 
-                                    id="file" 
-                                    name="file" 
-                                    class="file-input"
-                                    accept=".txt,.js,.py,.html,.css,.json,.xml,.yaml,.md"
-                                />
+                                <input type="file" id="file" name="file" class="file-input"
+                                       accept=".txt,.js,.py,.html,.css,.json,.xml,.yaml,.md,.ts,.jsx,.tsx,.go,.rs,.java,.kt,.rb,.php,.cs,.cpp,.c,.h,.sql,.sh,.bat,.ps1,.toml,.ini,.cfg,.env">
                                 <label for="file" class="file-label">
-                                    <i class="fas fa-upload"></i> 
+                                    <i class="fas fa-paperclip"></i>
                                     <span id="file-name">Attach File</span>
                                 </label>
                             </div>
-                            
-                            <button type="submit" id="submitBtn" class="primary-btn">
-                                <i class="fas fa-paper-plane"></i>
-                                <span>Send</span>
-                            </button>
                         </div>
                     </div>
                 </form>
             </div>
-            
-            <!-- Token Counter -->
-            <div class="token-counter">
-                <div class="token-info">
-                    <span>Input Tokens: <span id="input-tokens">0</span></span>
-                    <span>Output Tokens: <span id="output-tokens">0</span></span>
-                    <span>Total Tokens: <span id="total-tokens">0</span></span>
-                </div>
+        </div>
+    </div>
+
+    <!-- Browse Modal (Folder Picker) -->
+    <div id="browse-modal" class="modal-overlay" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-folder-open"></i> Select Workspace Folder</h3>
+                <button class="modal-close-btn icon-btn small"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-path-bar">
+                <button id="modal-up-btn" class="icon-btn small" title="Go Up"><i class="fas fa-arrow-up"></i></button>
+                <input type="text" id="modal-path-input" class="modal-path-input" placeholder="Enter path...">
+                <button id="modal-go-btn" class="icon-btn small" title="Go"><i class="fas fa-arrow-right"></i></button>
+            </div>
+            <div class="modal-drives" id="modal-drives"></div>
+            <div class="modal-file-list" id="modal-file-list"></div>
+            <div class="modal-footer">
+                <button id="modal-cancel-btn" class="secondary-btn">Cancel</button>
+                <button id="modal-select-btn" class="primary-btn"><i class="fas fa-check"></i> Select Folder</button>
             </div>
         </div>
     </div>
 
-    <!-- Templates -->
+    <!-- Image Lightbox -->
+    <div id="image-lightbox" class="lightbox-overlay" style="display:none;">
+        <div class="lightbox-content">
+            <button class="lightbox-close icon-btn"><i class="fas fa-times"></i></button>
+            <img id="lightbox-img" src="" alt="Preview">
+            <div class="lightbox-caption" id="lightbox-caption"></div>
+        </div>
+    </div>
+
+    <!-- File Viewer Modal -->
+    <div id="file-viewer-modal" class="modal-overlay" style="display:none;">
+        <div class="modal modal-wide">
+            <div class="modal-header">
+                <h3><i class="fas fa-file-code"></i> <span id="file-viewer-title">File</span></h3>
+                <div class="modal-header-actions">
+                    <button id="file-viewer-add-ctx" class="icon-btn small" title="Add to Context">
+                        <i class="fas fa-plus-circle"></i>
+                    </button>
+                    <button id="file-viewer-copy" class="icon-btn small" title="Copy Content">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                    <button class="modal-close-btn icon-btn small"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            <div class="file-viewer-content">
+                <pre><code id="file-viewer-code"></code></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Code Artifact Templates -->
+    <template id="code-artifact-template">
+        <div class="code-artifact">
+            <div class="artifact-header">
+                <span class="language-badge"></span>
+                <span class="file-path"></span>
+                <div class="artifact-actions">
+                    <button class="apply-btn icon-btn small" title="Apply to File" style="display:none;">
+                        <i class="fas fa-file-import"></i> Apply
+                    </button>
+                    <button class="preview-btn icon-btn small" title="Expand">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                    <button class="copy-btn icon-btn small" title="Copy">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+            </div>
+            <pre><code></code></pre>
+        </div>
+    </template>
+
     <template id="context-window-template">
         <div class="context-window">
             <div class="context-window-header">
@@ -153,30 +276,11 @@
                     </button>
                 </div>
             </div>
-            <div class="context-window-content">
-                <!-- Code content will be inserted here -->
-            </div>
+            <div class="context-window-content"></div>
             <div class="context-window-footer">
                 <span class="language-indicator"></span>
                 <span class="copy-indicator"></span>
             </div>
-        </div>
-    </template>
-
-    <template id="code-artifact-template">
-        <div class="code-artifact">
-            <div class="artifact-header">
-                <span class="language-badge"></span>
-                <div class="artifact-actions">
-                    <button class="preview-btn icon-btn small" title="Expand">
-                        <i class="fas fa-expand"></i>
-                    </button>
-                    <button class="copy-btn icon-btn small" title="Copy">
-                        <i class="fas fa-copy"></i>
-                    </button>
-                </div>
-            </div>
-            <pre><code></code></pre>
         </div>
     </template>
 
@@ -185,9 +289,7 @@
             <div class="dialog">
                 <div class="dialog-header">
                     <h3></h3>
-                    <button class="close-btn icon-btn small">
-                        <i class="fas fa-times"></i>
-                    </button>
+                    <button class="close-btn icon-btn small"><i class="fas fa-times"></i></button>
                 </div>
                 <div class="dialog-content"></div>
                 <div class="dialog-actions">
@@ -202,9 +304,12 @@
     <div id="processing-overlay" class="processing-overlay">
         <div class="processing-content">
             <div class="processing-spinner"></div>
-            <span>Processing request...</span>
+            <span>Agent is thinking...</span>
         </div>
     </div>
+
+    <!-- Toast Notification -->
+    <div id="toast-container" class="toast-container"></div>
 
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
@@ -219,6 +324,13 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-go.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-rust.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-java.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-csharp.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

@@ -102,6 +102,15 @@ class ConversationDatabase:
                     "'{}'"
                 )
 
+                # Add workspace_path column to conversations if it doesn't exist
+                self._safe_add_column(
+                    cursor,
+                    'conversations',
+                    'workspace_path',
+                    'TEXT',
+                    'NULL'
+                )
+
                 # Perform migrations
                 for table_migration in migrations:
                     table_name = table_migration['table']
@@ -169,6 +178,7 @@ class ConversationDatabase:
                         total_output_tokens INTEGER DEFAULT 0,
                         is_deleted INTEGER DEFAULT 0,
                         is_favorite INTEGER DEFAULT 0,
+                        workspace_path TEXT DEFAULT NULL,
                         metadata TEXT DEFAULT '{}'
                     )
                 ''')
@@ -225,17 +235,17 @@ class ConversationDatabase:
             self.logger.error(f"Database initialization failed: {str(e)}")
             raise
 
-    def create_conversation(self, name: str = 'New Conversation', metadata: Dict = None) -> int:
+    def create_conversation(self, name: str = 'New Conversation', metadata: Dict = None, workspace_path: str = None) -> int:
         """
-        Create a new conversation with metadata support
+        Create a new conversation with metadata and optional workspace support
         """
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
-                    INSERT INTO conversations (name, created_at, metadata)
-                    VALUES (?, datetime('now'), ?)
-                ''', (name, json.dumps(metadata or {})))
+                    INSERT INTO conversations (name, created_at, workspace_path, metadata)
+                    VALUES (?, datetime('now'), ?, ?)
+                ''', (name, workspace_path, json.dumps(metadata or {})))
                 return cursor.lastrowid
         except Exception as e:
             self.logger.error(f"Failed to create conversation: {str(e)}")
@@ -424,7 +434,7 @@ class ConversationDatabase:
                 cursor.execute(f'''
                     SELECT id, name, created_at, last_updated,
                            total_input_tokens, total_output_tokens,
-                           is_favorite, metadata
+                           is_favorite, workspace_path, metadata
                     FROM conversations 
                     {where_clause}
                     ORDER BY last_updated DESC 
@@ -534,6 +544,34 @@ class ConversationDatabase:
                 return {"total_input_tokens": 0, "total_output_tokens": 0, "total_tokens": 0}
         except Exception as e:
             self.logger.error(f"Failed to get conversation tokens: {str(e)}")
+            raise
+
+    def set_workspace(self, conversation_id: int, workspace_path: str) -> bool:
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    UPDATE conversations 
+                    SET workspace_path = ?, last_updated = datetime('now')
+                    WHERE id = ? AND is_deleted = 0
+                ''', (workspace_path, conversation_id))
+                return cursor.rowcount > 0
+        except Exception as e:
+            self.logger.error(f"Failed to set workspace for conversation {conversation_id}: {str(e)}")
+            raise
+
+    def get_workspace(self, conversation_id: int) -> Optional[str]:
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT workspace_path FROM conversations 
+                    WHERE id = ? AND is_deleted = 0
+                ''', (conversation_id,))
+                result = cursor.fetchone()
+                return result['workspace_path'] if result else None
+        except Exception as e:
+            self.logger.error(f"Failed to get workspace for conversation {conversation_id}: {str(e)}")
             raise
 
     def toggle_favorite(self, conversation_id: int) -> bool:

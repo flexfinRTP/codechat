@@ -2,7 +2,8 @@ Flask==2.2.3
 requests==2.28.1
 python-dotenv==0.21.0
 werkzeug==2.2.3
-anthropic
+openai
 sqlalchemy
 pytz
 flask_assets
+colorama

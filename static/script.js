@@ -1,27 +1,85 @@
-// DOM Elements
+// ─── DOM Elements ────────────────────────────────────────────────────────────
 const sidebar = document.getElementById('sidebar');
 const toggleSidebarBtn = document.getElementById('toggle-sidebar');
 const newConversationBtn = document.getElementById('new-conversation-btn');
 const conversationList = document.getElementById('conversation-list');
-const createContextWindowBtn = document.getElementById('create-context-window');
 const currentConversationIdInput = document.getElementById('current-conversation-id');
 const processingOverlay = document.getElementById('processing-overlay');
-const contextWindowTemplate = document.getElementById('context-window-template');
 const codeArtifactTemplate = document.getElementById('code-artifact-template');
+const contextWindowTemplate = document.getElementById('context-window-template');
 const confirmDialogTemplate = document.getElementById('confirm-dialog-template');
 const fileInput = document.getElementById('file');
 const fileNameSpan = document.getElementById('file-name');
 const codeForm = document.getElementById('codeForm');
 const toggleThemeBtn = document.getElementById('toggle-theme');
-
-// Token counters
 const inputTokensSpan = document.getElementById('input-tokens');
 const outputTokensSpan = document.getElementById('output-tokens');
 const totalTokensSpan = document.getElementById('total-tokens');
 
-// Theme Management
+const workspacePathInput = document.getElementById('workspace-path-input');
+const browseWorkspaceBtn = document.getElementById('browse-workspace-btn');
+const clearWorkspaceBtn = document.getElementById('clear-workspace-btn');
+const workspaceBadge = document.getElementById('workspace-badge');
+const fileTree = document.getElementById('file-tree');
+const fileBreadcrumb = document.getElementById('file-breadcrumb');
+const fileTreeUp = document.getElementById('file-tree-up');
+
+const browseModal = document.getElementById('browse-modal');
+const modalPathInput = document.getElementById('modal-path-input');
+const modalDrives = document.getElementById('modal-drives');
+const modalFileList = document.getElementById('modal-file-list');
+const modalUpBtn = document.getElementById('modal-up-btn');
+const modalGoBtn = document.getElementById('modal-go-btn');
+const modalSelectBtn = document.getElementById('modal-select-btn');
+const modalCancelBtn = document.getElementById('modal-cancel-btn');
+
+const imageLightbox = document.getElementById('image-lightbox');
+const lightboxImg = document.getElementById('lightbox-img');
+const lightboxCaption = document.getElementById('lightbox-caption');
+
+const fileViewerModal = document.getElementById('file-viewer-modal');
+const fileViewerTitle = document.getElementById('file-viewer-title');
+const fileViewerCode = document.getElementById('file-viewer-code');
+const fileViewerAddCtx = document.getElementById('file-viewer-add-ctx');
+const fileViewerCopy = document.getElementById('file-viewer-copy');
+
+let currentWorkspacePath = '';
+let currentBrowsePath = '';
+let currentFileTreePath = '';
+let currentViewerFilePath = '';
+
+// ─── Marked Configuration ────────────────────────────────────────────────────
+if (typeof marked !== 'undefined') {
+    marked.setOptions({
+        breaks: true,
+        gfm: true,
+        highlight: function(code, lang) {
+            if (window.Prism && lang && Prism.languages[lang]) {
+                return Prism.highlight(code, Prism.languages[lang], lang);
+            }
+            return code;
+        }
+    });
+}
+
+// ─── Toast Notifications ─────────────────────────────────────────────────────
+function showToast(message, type = 'info', duration = 3000) {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    const icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', info: 'fa-info-circle', warning: 'fa-exclamation-triangle' };
+    toast.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i> <span>${message}</span>`;
+    container.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('show'));
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
+}
+
+// ─── Theme Management ────────────────────────────────────────────────────────
 function initializeTheme() {
-    const savedTheme = localStorage.getItem('theme') || 'light';
+    const savedTheme = localStorage.getItem('theme') || 'dark';
     document.body.setAttribute('data-theme', savedTheme);
     updateThemeIcon(savedTheme);
 }
@@ -39,314 +97,792 @@ function updateThemeIcon(theme) {
     icon.className = theme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
 }
 
-// Syntax Highlighting
-function initializePrismJS() {
-    const prismCSS = document.createElement('link');
-    prismCSS.rel = 'stylesheet';
-    prismCSS.href = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css';
-    document.head.appendChild(prismCSS);
-
-    const prismJS = document.createElement('script');
-    prismJS.src = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js';
-    prismJS.onload = loadPrismLanguages;
-    document.head.appendChild(prismJS);
-}
-
-function loadPrismLanguages() {
-    const languages = [
-        'python',
-        'javascript',
-        'typescript',
-        'css',
-        'markup',
-        'json',
-        'yaml',
-        'bash',
-        'sql'
-    ];
-
-    languages.forEach(lang => {
-        const script = document.createElement('script');
-        script.src = `https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-${lang}.min.js`;
-        document.head.appendChild(script);
-    });
-}
-
+// ─── Sidebar Management ─────────────────────────────────────────────────────
 function initializeSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const toggleSidebarBtn = document.getElementById('toggle-sidebar');
-    const mainContent = document.querySelector('.main-content');
-    
-    // Remove any existing click handlers
-    toggleSidebarBtn.replaceWith(toggleSidebarBtn.cloneNode(true));
     const newToggleBtn = document.getElementById('toggle-sidebar');
-    
-    // Get the initial state from localStorage
     const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
     if (isCollapsed) {
         sidebar.classList.add('collapsed');
-        mainContent.style.marginLeft = '60px';
         newToggleBtn.querySelector('i').classList.replace('fa-chevron-left', 'fa-chevron-right');
     }
-    
+
     newToggleBtn.addEventListener('click', () => {
         sidebar.classList.toggle('collapsed');
         const isNowCollapsed = sidebar.classList.contains('collapsed');
-        
-        // Update main content margin
-        mainContent.style.marginLeft = isNowCollapsed ? '60px' : '300px';
-        
-        // Update button icon
         const icon = newToggleBtn.querySelector('i');
         if (isNowCollapsed) {
             icon.classList.replace('fa-chevron-left', 'fa-chevron-right');
         } else {
             icon.classList.replace('fa-chevron-right', 'fa-chevron-left');
         }
-        
-        // Save state
         localStorage.setItem('sidebarCollapsed', isNowCollapsed);
     });
 }
-// Conversation Container Management
-function getConversationContainer() {
-    let container = document.getElementById('conversation-container');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'conversation-container';
-        container.style.height = 'calc(100vh - 300px)'; // Set fixed height
-        container.style.overflowY = 'auto'; // Enable vertical scrolling
-        document.querySelector('.main-content').appendChild(container);
-    }
-    return container;
+
+// ─── Sidebar Tabs ────────────────────────────────────────────────────────────
+function initializeSidebarTabs() {
+    document.querySelectorAll('.sidebar-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            tab.classList.add('active');
+            const tabId = `tab-${tab.dataset.tab}`;
+            document.getElementById(tabId).classList.add('active');
+
+            if (tab.dataset.tab === 'files' && currentWorkspacePath) {
+                loadFileTree(currentFileTreePath || currentWorkspacePath);
+            }
+            if (tab.dataset.tab === 'context') {
+                loadContextFiles();
+            }
+        });
+    });
 }
 
+// ─── Workspace Management ────────────────────────────────────────────────────
+function setWorkspace(path) {
+    currentWorkspacePath = path;
+    currentFileTreePath = path;
+    workspacePathInput.value = path;
+    localStorage.setItem('lastWorkspace', path);
 
-// Context Window Management
-function createContextWindow(content, language = 'text', title = 'Code Output') {
-    const existingWindows = document.querySelectorAll('.context-window');
-    existingWindows.forEach(window => window.remove());
+    if (path) {
+        clearWorkspaceBtn.style.display = '';
+        const folderName = path.split(/[/\\]/).filter(Boolean).pop();
+        workspaceBadge.textContent = `📁 ${folderName}`;
+        workspaceBadge.title = path;
+        workspaceBadge.style.display = '';
+        loadFileTree(path);
+    } else {
+        clearWorkspaceBtn.style.display = 'none';
+        workspaceBadge.style.display = 'none';
+        fileTree.innerHTML = '<div class="file-tree-empty"><i class="fas fa-folder-open"></i><p>Select a workspace to browse files</p></div>';
+    }
+
+    const convId = currentConversationIdInput.value;
+    if (convId && path) {
+        fetch('/set-workspace', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ conversation_id: convId, workspace_path: path })
+        });
+    }
+}
+
+function initializeWorkspace() {
+    const lastWorkspace = localStorage.getItem('lastWorkspace');
+    if (lastWorkspace) {
+        setWorkspace(lastWorkspace);
+    }
+
+    browseWorkspaceBtn.addEventListener('click', () => openBrowseModal());
+    clearWorkspaceBtn.addEventListener('click', () => setWorkspace(''));
+}
+
+// ─── Browse Modal (Folder Picker) ────────────────────────────────────────────
+async function openBrowseModal(startPath = '') {
+    browseModal.style.display = 'flex';
+
+    if (!startPath) {
+        startPath = currentWorkspacePath || '';
+    }
+
+    if (!startPath) {
+        try {
+            const resp = await fetch('/drives');
+            const data = await resp.json();
+            modalDrives.style.display = 'flex';
+            modalDrives.innerHTML = '';
+            data.drives.forEach(drive => {
+                const btn = document.createElement('button');
+                btn.className = 'drive-btn';
+                btn.innerHTML = `<i class="fas fa-hdd"></i> <span>${drive.label}</span>`;
+                if (drive.free_gb !== undefined) {
+                    btn.innerHTML += `<small>${drive.free_gb}GB free</small>`;
+                }
+                btn.addEventListener('click', () => {
+                    modalDrives.style.display = 'none';
+                    browseModalPath(drive.path);
+                });
+                modalDrives.appendChild(btn);
+            });
+            modalFileList.innerHTML = '<div class="browse-empty">Select a drive to browse</div>';
+        } catch (e) {
+            console.error('Failed to load drives:', e);
+        }
+    } else {
+        modalDrives.style.display = 'none';
+        browseModalPath(startPath);
+    }
+}
+
+async function browseModalPath(dirPath) {
+    try {
+        const resp = await fetch(`/browse?path=${encodeURIComponent(dirPath)}`);
+        const data = await resp.json();
+        if (data.error) {
+            showToast(data.error, 'error');
+            return;
+        }
+
+        currentBrowsePath = data.path;
+        modalPathInput.value = data.path;
+        modalFileList.innerHTML = '';
+
+        if (data.parent) {
+            const parentItem = document.createElement('div');
+            parentItem.className = 'browse-item browse-dir';
+            parentItem.innerHTML = '<i class="fas fa-arrow-up"></i> <span>..</span>';
+            parentItem.addEventListener('click', () => browseModalPath(data.parent));
+            modalFileList.appendChild(parentItem);
+        }
+
+        data.items.forEach(item => {
+            if (!item.is_dir) return;
+            const el = document.createElement('div');
+            el.className = 'browse-item browse-dir';
+            el.innerHTML = `<i class="fas fa-folder"></i> <span>${item.name}</span>`;
+            el.addEventListener('click', () => browseModalPath(item.path));
+            modalFileList.appendChild(el);
+        });
+
+        if (modalFileList.children.length <= (data.parent ? 1 : 0)) {
+            const empty = document.createElement('div');
+            empty.className = 'browse-empty';
+            empty.textContent = 'No subdirectories';
+            modalFileList.appendChild(empty);
+        }
+    } catch (e) {
+        showToast('Failed to browse directory', 'error');
+    }
+}
+
+function initializeBrowseModal() {
+    document.querySelectorAll('.modal-close-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            btn.closest('.modal-overlay').style.display = 'none';
+        });
+    });
+
+    modalCancelBtn.addEventListener('click', () => {
+        browseModal.style.display = 'none';
+    });
+
+    modalSelectBtn.addEventListener('click', () => {
+        if (currentBrowsePath) {
+            setWorkspace(currentBrowsePath);
+            browseModal.style.display = 'none';
+            showToast(`Workspace set: ${currentBrowsePath.split(/[/\\]/).pop()}`, 'success');
+        }
+    });
+
+    modalUpBtn.addEventListener('click', () => {
+        if (currentBrowsePath) {
+            const parts = currentBrowsePath.replace(/[/\\]$/, '').split(/[/\\]/);
+            if (parts.length > 1) {
+                parts.pop();
+                browseModalPath(parts.join('\\') || parts.join('/'));
+            }
+        }
+    });
+
+    modalGoBtn.addEventListener('click', () => {
+        const path = modalPathInput.value.trim();
+        if (path) browseModalPath(path);
+    });
+
+    modalPathInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const path = modalPathInput.value.trim();
+            if (path) browseModalPath(path);
+        }
+    });
+
+    browseModal.addEventListener('click', (e) => {
+        if (e.target === browseModal) browseModal.style.display = 'none';
+    });
+}
+
+// ─── File Tree ───────────────────────────────────────────────────────────────
+async function loadFileTree(dirPath) {
+    if (!dirPath) return;
+    currentFileTreePath = dirPath;
+
+    try {
+        const resp = await fetch(`/browse?path=${encodeURIComponent(dirPath)}`);
+        const data = await resp.json();
+        if (data.error) {
+            showToast(data.error, 'error');
+            return;
+        }
+
+        const relativePath = currentWorkspacePath
+            ? dirPath.replace(currentWorkspacePath, '').replace(/^[/\\]/, '') || '/'
+            : dirPath;
+        fileBreadcrumb.textContent = relativePath;
+        fileBreadcrumb.title = dirPath;
+
+        fileTree.innerHTML = '';
+
+        data.items.forEach(item => {
+            const el = document.createElement('div');
+            el.className = `file-tree-item ${item.is_dir ? 'is-dir' : 'is-file'}`;
+
+            let icon = 'fa-file';
+            if (item.is_dir) icon = 'fa-folder';
+            else if (item.is_image) icon = 'fa-file-image';
+            else {
+                const extIcons = {
+                    '.py': 'fa-file-code', '.js': 'fa-file-code', '.ts': 'fa-file-code',
+                    '.html': 'fa-file-code', '.css': 'fa-file-code', '.json': 'fa-file-code',
+                    '.md': 'fa-file-lines', '.txt': 'fa-file-lines',
+                    '.sql': 'fa-database', '.sh': 'fa-terminal', '.bat': 'fa-terminal'
+                };
+                icon = extIcons[item.ext] || 'fa-file';
+            }
+
+            const sizeStr = item.size !== undefined ? formatFileSize(item.size) : '';
+            el.innerHTML = `
+                <i class="fas ${icon}"></i>
+                <span class="file-name">${item.name}</span>
+                ${sizeStr ? `<span class="file-size">${sizeStr}</span>` : ''}
+            `;
+
+            if (item.is_dir) {
+                el.addEventListener('click', () => loadFileTree(item.path));
+            } else if (item.is_image) {
+                el.addEventListener('click', () => openImageLightbox(item.path, item.name));
+            } else if (!item.is_binary) {
+                el.addEventListener('click', () => openFileViewer(item.path, item.name));
+            }
+
+            el.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                if (item.is_dir) {
+                    showFileTreeContextMenu(e, [
+                        { label: 'Add folder to context', icon: 'fa-folder-plus', action: () => addFolderToContext(item.path) }
+                    ]);
+                } else if (!item.is_binary) {
+                    showFileTreeContextMenu(e, [
+                        { label: 'Add to context', icon: 'fa-plus-circle', action: () => addFileToContext(item.path) }
+                    ]);
+                }
+            });
+
+            fileTree.appendChild(el);
+        });
+
+        if (data.items.length === 0) {
+            fileTree.innerHTML = '<div class="file-tree-empty"><p>Empty directory</p></div>';
+        }
+    } catch (e) {
+        console.error('Failed to load file tree:', e);
+    }
+}
+
+function formatFileSize(bytes) {
+    if (bytes < 1024) return `${bytes}B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
+function initializeFileTree() {
+    fileTreeUp.addEventListener('click', () => {
+        if (currentFileTreePath && currentFileTreePath !== currentWorkspacePath) {
+            const parts = currentFileTreePath.replace(/[/\\]$/, '').split(/[/\\]/);
+            parts.pop();
+            const parent = parts.join('\\') || parts.join('/');
+            if (parent && parent.length >= (currentWorkspacePath || '').length) {
+                loadFileTree(parent);
+            }
+        }
+    });
+}
+
+// ─── Image Lightbox ──────────────────────────────────────────────────────────
+function openImageLightbox(imagePath, caption = '') {
+    lightboxImg.src = `/workspace-image?path=${encodeURIComponent(imagePath)}`;
+    lightboxCaption.textContent = caption || imagePath.split(/[/\\]/).pop();
+    imageLightbox.style.display = 'flex';
+}
+
+function initializeLightbox() {
+    imageLightbox.addEventListener('click', (e) => {
+        if (e.target === imageLightbox || e.target.closest('.lightbox-close')) {
+            imageLightbox.style.display = 'none';
+        }
+    });
+}
+
+// ─── File Viewer ─────────────────────────────────────────────────────────────
+async function openFileViewer(filePath, fileName) {
+    try {
+        const resp = await fetch(`/read-file?path=${encodeURIComponent(filePath)}`);
+        const data = await resp.json();
+        if (data.error) {
+            showToast(data.error, 'error');
+            return;
+        }
+
+        if (data.is_image) {
+            openImageLightbox(filePath, fileName);
+            return;
+        }
+
+        currentViewerFilePath = filePath;
+        fileViewerTitle.textContent = fileName || data.name;
+        fileViewerCode.textContent = data.content;
+        fileViewerCode.className = `language-${data.language || 'plaintext'}`;
+
+        if (window.Prism) {
+            Prism.highlightElement(fileViewerCode);
+        }
+
+        fileViewerModal.style.display = 'flex';
+    } catch (e) {
+        showToast('Failed to read file', 'error');
+    }
+}
+
+function initializeFileViewer() {
+    fileViewerAddCtx.addEventListener('click', () => {
+        if (currentViewerFilePath) {
+            addFileToContext(currentViewerFilePath);
+        }
+    });
+
+    fileViewerCopy.addEventListener('click', async () => {
+        try {
+            await navigator.clipboard.writeText(fileViewerCode.textContent);
+            showToast('Copied to clipboard', 'success');
+        } catch (e) {
+            showToast('Copy failed', 'error');
+        }
+    });
+
+    fileViewerModal.addEventListener('click', (e) => {
+        if (e.target === fileViewerModal) fileViewerModal.style.display = 'none';
+    });
+}
+
+// ─── File Tree Context Menu ───────────────────────────────────────────────────
+function showFileTreeContextMenu(event, items) {
+    document.querySelectorAll('.ftree-ctx-menu').forEach(m => m.remove());
+    const menu = document.createElement('div');
+    menu.className = 'ftree-ctx-menu';
+    items.forEach(item => {
+        const btn = document.createElement('button');
+        btn.className = 'ftree-ctx-item';
+        btn.innerHTML = `<i class="fas ${item.icon}"></i> ${item.label}`;
+        btn.addEventListener('click', () => { menu.remove(); item.action(); });
+        menu.appendChild(btn);
+    });
+    menu.style.left = `${event.clientX}px`;
+    menu.style.top = `${event.clientY}px`;
+    document.body.appendChild(menu);
+    const cleanup = (e) => {
+        if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', cleanup); }
+    };
+    setTimeout(() => document.addEventListener('click', cleanup), 0);
+}
+
+// ─── Context Management ──────────────────────────────────────────────────────
+async function addFolderToContext(folderPath) {
+    const convId = currentConversationIdInput.value;
+    if (!convId) { showToast('Create a conversation first', 'warning'); return; }
+
+    showToast('Adding folder files to context...', 'info', 5000);
+    try {
+        const resp = await fetch('/add-folder-context', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ conversation_id: convId, folder_path: folderPath })
+        });
+        const data = await resp.json();
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast(`${data.message} (${data.skipped_count} skipped)`, 'success', 4000);
+            loadContextFiles();
+        }
+    } catch (e) {
+        showToast('Failed to add folder', 'error');
+    }
+}
+
+async function addFileToContext(filePath) {
+    const convId = currentConversationIdInput.value;
+    if (!convId) {
+        showToast('Create a conversation first', 'warning');
+        return;
+    }
+
+    try {
+        const resp = await fetch('/add-file-context', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ conversation_id: convId, file_path: filePath })
+        });
+        const data = await resp.json();
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast(data.message, 'success');
+            loadContextFiles();
+        }
+    } catch (e) {
+        showToast('Failed to add context', 'error');
+    }
+}
+
+async function removeFileFromContext(filePath) {
+    const convId = currentConversationIdInput.value;
+    if (!convId) return;
+
+    try {
+        const resp = await fetch('/remove-file-context', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ conversation_id: convId, file_path: filePath })
+        });
+        const data = await resp.json();
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('Removed from context', 'info');
+            loadContextFiles();
+        }
+    } catch (e) {
+        showToast('Failed to remove context', 'error');
+    }
+}
+
+async function loadContextFiles() {
+    const convId = currentConversationIdInput.value;
+    const container = document.getElementById('context-file-list');
+
+    if (!convId) {
+        container.innerHTML = '<div class="context-empty"><i class="fas fa-layer-group"></i><p>No active conversation</p></div>';
+        return;
+    }
+
+    try {
+        const resp = await fetch(`/load-conversation/${convId}`);
+        const data = await resp.json();
+
+        if (!data.contexts || data.contexts.length === 0) {
+            container.innerHTML = '<div class="context-empty"><i class="fas fa-layer-group"></i><p>No files in context</p><small>Right-click files in the Files tab to add</small></div>';
+            return;
+        }
+
+        container.innerHTML = '';
+        data.contexts.forEach(ctx => {
+            const name = ctx.file_path.split(/[/\\]/).pop();
+            const el = document.createElement('div');
+            el.className = 'context-file-item';
+            el.innerHTML = `
+                <div class="context-file-info">
+                    <i class="fas fa-file-code"></i>
+                    <span class="context-file-name" title="${ctx.file_path}">${name}</span>
+                </div>
+                <button class="icon-btn small remove-ctx-btn" title="Remove from context">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            el.querySelector('.context-file-info').addEventListener('click', () => {
+                openFileViewer(ctx.file_path, name);
+            });
+            el.querySelector('.remove-ctx-btn').addEventListener('click', () => {
+                removeFileFromContext(ctx.file_path);
+            });
+            container.appendChild(el);
+        });
+    } catch (e) {
+        console.error('Failed to load context files:', e);
+    }
+}
+
+// ─── Conversation Container ──────────────────────────────────────────────────
+function getConversationContainer() {
+    return document.getElementById('conversation-container');
+}
+
+// ─── Context Window (Code Preview Popup) ─────────────────────────────────────
+function createContextWindow(content, language = 'text', title = 'Code Preview') {
+    document.querySelectorAll('.context-window').forEach(w => w.remove());
 
     const contextWindow = contextWindowTemplate.content.cloneNode(true).querySelector('.context-window');
-    const windowTitle = contextWindow.querySelector('.window-title span');
+    contextWindow.querySelector('.window-title span').textContent = title;
     const contentArea = contextWindow.querySelector('.context-window-content');
     const copyBtn = contextWindow.querySelector('.context-copy-btn');
     const closeBtn = contextWindow.querySelector('.context-close-btn');
     const copyIndicator = contextWindow.querySelector('.copy-indicator');
 
-    windowTitle.textContent = title;
-
-    // Create code block with proper formatting
-    const preElement = document.createElement('pre');
-    const codeElement = document.createElement('code');
-    codeElement.className = `language-${language}`;
-    codeElement.textContent = content;
-    preElement.appendChild(codeElement);
-    contentArea.appendChild(preElement);
-
-    if (window.Prism) {
-        Prism.highlightElement(codeElement);
-    }
+    const pre = document.createElement('pre');
+    const code = document.createElement('code');
+    code.className = `language-${language}`;
+    code.textContent = content;
+    pre.appendChild(code);
+    contentArea.appendChild(pre);
+    if (window.Prism) Prism.highlightElement(code);
 
     copyBtn.addEventListener('click', async () => {
         try {
             await navigator.clipboard.writeText(content);
             copyIndicator.textContent = 'Copied!';
-            setTimeout(() => {
-                copyIndicator.textContent = '';
-            }, 2000);
+            setTimeout(() => { copyIndicator.textContent = ''; }, 2000);
         } catch (err) {
-            console.error('Failed to copy:', err);
             copyIndicator.textContent = 'Copy failed';
         }
     });
-
-    closeBtn.addEventListener('click', () => {
-        contextWindow.remove();
-    });
-
+    closeBtn.addEventListener('click', () => contextWindow.remove());
     document.body.appendChild(contextWindow);
 }
 
-// Code Artifact Management
-function createCodeArtifact(content, language, isLatest = false) {
+// ─── Code Artifact Creation ──────────────────────────────────────────────────
+function createCodeArtifact(content, language, filePath = null, isLatest = false) {
     const artifact = codeArtifactTemplate.content.cloneNode(true).querySelector('.code-artifact');
     const languageBadge = artifact.querySelector('.language-badge');
+    const filePathSpan = artifact.querySelector('.file-path');
     const previewBtn = artifact.querySelector('.preview-btn');
     const copyBtn = artifact.querySelector('.copy-btn');
+    const applyBtn = artifact.querySelector('.apply-btn');
     const codeElement = artifact.querySelector('code');
 
-    // Map common language names to Prism-supported languages
     const languageMap = {
-        'python': 'python',
-        'javascript': 'javascript',
-        'typescript': 'typescript',
-        'html': 'markup',
-        'css': 'css',
-        'json': 'json',
-        'yaml': 'yaml',
-        'bash': 'bash',
-        'shell': 'bash',
-        'sql': 'sql',
-        'jsx': 'jsx',
-        'tsx': 'tsx',
-        'markup': 'markup'
+        'python': 'python', 'javascript': 'javascript', 'typescript': 'typescript',
+        'html': 'markup', 'css': 'css', 'json': 'json', 'yaml': 'yaml',
+        'bash': 'bash', 'shell': 'bash', 'sql': 'sql', 'jsx': 'jsx',
+        'tsx': 'tsx', 'markup': 'markup', 'go': 'go', 'rust': 'rust',
+        'java': 'java', 'csharp': 'csharp', 'c': 'c', 'cpp': 'cpp'
     };
 
-    const prismLanguage = languageMap[language.toLowerCase()] || 'markup';
-    
+    const prismLang = languageMap[language.toLowerCase()] || 'markup';
     languageBadge.textContent = language;
-    codeElement.className = `language-${prismLanguage}`;
+    codeElement.className = `language-${prismLang}`;
     codeElement.textContent = content;
+    if (window.Prism) Prism.highlightElement(codeElement);
 
-    if (window.Prism) {
-        Prism.highlightElement(codeElement);
+    if (filePath) {
+        filePathSpan.textContent = filePath;
+        filePathSpan.title = filePath;
+        applyBtn.style.display = '';
+        applyBtn.addEventListener('click', () => applyCodeToFile(content, filePath));
     }
 
-    // Show code in context window automatically if it's the latest
     if (isLatest) {
-        setTimeout(() => {
-            createContextWindow(content, prismLanguage, 'Latest Code Output');
-        }, 100);
+        setTimeout(() => createContextWindow(content, prismLang, filePath || 'Latest Code Output'), 100);
     }
 
-    previewBtn.addEventListener('click', () => {
-        createContextWindow(content, prismLanguage);
-    });
+    previewBtn.addEventListener('click', () => createContextWindow(content, prismLang, filePath || 'Code Preview'));
 
     copyBtn.addEventListener('click', async () => {
         try {
             await navigator.clipboard.writeText(content);
             copyBtn.innerHTML = '<i class="fas fa-check"></i>';
-            setTimeout(() => {
-                copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
-            }, 2000);
+            showToast('Copied!', 'success', 1500);
+            setTimeout(() => { copyBtn.innerHTML = '<i class="fas fa-copy"></i>'; }, 2000);
         } catch (err) {
-            console.error('Failed to copy:', err);
+            console.error('Copy failed:', err);
         }
     });
 
     return artifact;
 }
 
+// ─── Apply Code to File ─────────────────────────────────────────────────────
+async function applyCodeToFile(content, filePath) {
+    let fullPath = filePath;
+    if (currentWorkspacePath && !filePath.match(/^[A-Za-z]:[/\\]/) && !filePath.startsWith('/')) {
+        const sep = currentWorkspacePath.includes('\\') ? '\\' : '/';
+        fullPath = currentWorkspacePath + sep + filePath;
+    }
+
+    showConfirmDialog(
+        'Apply Code to File',
+        `Write this code to:\n${fullPath}`,
+        async () => {
+            try {
+                const resp = await fetch('/write-file', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: fullPath,
+                        content: content,
+                        workspace: currentWorkspacePath
+                    })
+                });
+                const data = await resp.json();
+                if (data.error) {
+                    showToast(data.error, 'error');
+                } else {
+                    showToast(`Saved: ${filePath}`, 'success');
+                    if (currentFileTreePath) loadFileTree(currentFileTreePath);
+                }
+            } catch (e) {
+                showToast('Failed to write file', 'error');
+            }
+        }
+    );
+}
+
+// ─── Message Formatting ─────────────────────────────────────────────────────
 function formatMessageContent(content) {
-    // Replace newlines with proper HTML breaks
+    if (typeof marked !== 'undefined') {
+        let formatted = content;
+        const codeBlocks = [];
+        formatted = formatted.replace(/```(\w+)?(?::([^\n]+))?\n([\s\S]*?)```/g, (match, lang, path, code) => {
+            const placeholder = `%%CODEBLOCK_${codeBlocks.length}%%`;
+            codeBlocks.push({ lang: lang || 'text', path: path || null, code: code.trim() });
+            return placeholder;
+        });
+
+        formatted = marked.parse(formatted);
+
+        codeBlocks.forEach((block, i) => {
+            const prismLang = block.lang || 'text';
+            let highlighted = block.code;
+            if (window.Prism && Prism.languages[prismLang]) {
+                highlighted = Prism.highlight(block.code, Prism.languages[prismLang], prismLang);
+            }
+            const pathLabel = block.path ? `<span class="code-path-label">${block.path}</span>` : '';
+            const applyBtnHtml = block.path
+                ? `<button class="inline-apply-btn" data-path="${block.path}" data-code-idx="${i}"><i class="fas fa-file-import"></i> Apply</button>`
+                : '';
+            const copyBtnHtml = `<button class="inline-copy-btn" data-code-idx="${i}"><i class="fas fa-copy"></i></button>`;
+            const codeHtml = `<div class="inline-code-block">
+                <div class="inline-code-header">
+                    <span class="inline-code-lang">${block.lang}</span>
+                    ${pathLabel}
+                    <div class="inline-code-actions">${applyBtnHtml}${copyBtnHtml}</div>
+                </div>
+                <pre><code class="language-${prismLang}">${highlighted}</code></pre>
+            </div>`;
+            formatted = formatted.replace(`%%CODEBLOCK_${i}%%`, codeHtml);
+        });
+
+        // Detect workspace images in response
+        if (currentWorkspacePath) {
+            formatted = formatted.replace(
+                /(?:!\[([^\]]*)\]\(([^)]+)\))/g,
+                (match, alt, src) => {
+                    if (src.match(/\.(png|jpg|jpeg|gif|webp|svg|bmp)$/i)) {
+                        const imgSrc = `/workspace-image?path=${encodeURIComponent(src)}`;
+                        return `<div class="chat-image-container"><img src="${imgSrc}" alt="${alt || src}" class="chat-image" onclick="openImageLightbox('${src}', '${alt || src}')"><span class="chat-image-caption">${alt || src.split(/[/\\]/).pop()}</span></div>`;
+                    }
+                    return match;
+                }
+            );
+        }
+
+        return formatted;
+    }
+
     content = content.replace(/\n\n/g, '</p><p>');
     content = content.replace(/\n/g, '<br>');
-    
-    // Wrap in paragraphs if not already
-    if (!content.startsWith('<p>')) {
-        content = `<p>${content}</p>`;
-    }
-    
+    if (!content.startsWith('<p>')) content = `<p>${content}</p>`;
     return content;
 }
 
 function formatTimestamp(timestamp) {
     const date = new Date(timestamp);
     return date.toLocaleString(undefined, {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit'
     });
 }
 
-// Enhanced Message Creation
+// ─── Message Element Creation ────────────────────────────────────────────────
 function createMessageElement(message) {
-    const messageElement = document.createElement('div');
-    messageElement.className = `message ${message.role}-message`;
-    
-    const contentElement = document.createElement('div');
-    contentElement.className = 'message-content';
-    contentElement.innerHTML = formatMessageContent(message.content);
-    
-    const metaElement = document.createElement('div');
-    metaElement.className = 'message-meta';
-    
-    const timestampSpan = document.createElement('span');
-    timestampSpan.className = 'message-timestamp';
-    timestampSpan.textContent = message.formatted_time || formatTimestamp(message.timestamp);
-    
-    metaElement.appendChild(timestampSpan);
-    
-    // Add artifact buttons if message has associated artifacts
-    if (message.artifacts && message.artifacts.length > 0) {
-        const artifactButtons = document.createElement('div');
-        artifactButtons.className = 'message-artifacts';
-        
-        message.artifacts.forEach((artifact, index) => {
-            const button = document.createElement('button');
-            button.className = 'artifact-button';
-            button.innerHTML = `<i class="fas fa-code"></i> ${artifact.language}`;
-            button.addEventListener('click', () => {
-                createContextWindow(artifact.content, artifact.language, `Code Output ${index + 1}`);
+    const el = document.createElement('div');
+    el.className = `message ${message.role}-message`;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'message-avatar';
+    avatar.innerHTML = message.role === 'user'
+        ? '<i class="fas fa-user"></i>'
+        : '<i class="fas fa-robot"></i>';
+
+    const body = document.createElement('div');
+    body.className = 'message-body';
+
+    const contentEl = document.createElement('div');
+    contentEl.className = 'message-content';
+    contentEl.innerHTML = formatMessageContent(message.content);
+
+    const metaEl = document.createElement('div');
+    metaEl.className = 'message-meta';
+    const ts = document.createElement('span');
+    ts.className = 'message-timestamp';
+    ts.textContent = message.formatted_time || formatTimestamp(message.timestamp);
+    metaEl.appendChild(ts);
+
+    body.appendChild(contentEl);
+    body.appendChild(metaEl);
+    el.appendChild(avatar);
+    el.appendChild(body);
+
+    // Wire up inline code block buttons after rendering
+    setTimeout(() => {
+        el.querySelectorAll('.inline-apply-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const codeEl = btn.closest('.inline-code-block').querySelector('code');
+                const path = btn.dataset.path;
+                applyCodeToFile(codeEl.textContent, path);
             });
-            artifactButtons.appendChild(button);
         });
-        
-        metaElement.appendChild(artifactButtons);
-    }
-    
-    messageElement.appendChild(contentElement);
-    messageElement.appendChild(metaElement);
-    
-    return messageElement;
+        el.querySelectorAll('.inline-copy-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const codeEl = btn.closest('.inline-code-block').querySelector('code');
+                try {
+                    await navigator.clipboard.writeText(codeEl.textContent);
+                    btn.innerHTML = '<i class="fas fa-check"></i>';
+                    setTimeout(() => { btn.innerHTML = '<i class="fas fa-copy"></i>'; }, 2000);
+                } catch (e) { console.error('Copy failed:', e); }
+            });
+        });
+    }, 0);
+
+    return el;
 }
 
-// Confirmation Dialog
+// ─── Confirm Dialog ──────────────────────────────────────────────────────────
 function showConfirmDialog(title, message, onConfirm) {
     const dialog = confirmDialogTemplate.content.cloneNode(true).querySelector('.dialog-overlay');
-    const titleElement = dialog.querySelector('h3');
-    const contentElement = dialog.querySelector('.dialog-content');
-    const confirmBtn = dialog.querySelector('.confirm-btn');
-    const cancelBtn = dialog.querySelector('.cancel-btn');
-    const closeBtn = dialog.querySelector('.close-btn');
-
-    titleElement.textContent = title;
-    contentElement.textContent = message;
-
-    confirmBtn.addEventListener('click', () => {
-        onConfirm();
-        dialog.remove();
+    dialog.querySelector('h3').textContent = title;
+    dialog.querySelector('.dialog-content').textContent = message;
+    dialog.querySelector('.confirm-btn').addEventListener('click', () => { onConfirm(); dialog.remove(); });
+    [dialog.querySelector('.cancel-btn'), dialog.querySelector('.close-btn')].forEach(b => {
+        b.addEventListener('click', () => dialog.remove());
     });
-
-    [cancelBtn, closeBtn].forEach(btn => {
-        btn.addEventListener('click', () => {
-            dialog.remove();
-        });
-    });
-
     document.body.appendChild(dialog);
 }
 
-// Conversation Management
+// ─── Conversation Handlers ───────────────────────────────────────────────────
 function initializeConversationHandlers() {
     conversationList.addEventListener('click', handleConversationClick);
-    conversationList.addEventListener('dblclick', handleConversationRename);
 }
 
 async function handleConversationClick(event) {
-    const conversationItem = event.target.closest('.conversation-item');
-    if (!conversationItem) return;
+    const item = event.target.closest('.conversation-item');
+    if (!item) return;
 
-    const renameBtn = event.target.closest('.rename-btn');
-    const deleteBtn = event.target.closest('.delete-btn');
-
-    if (renameBtn) {
-        handleConversationRename(conversationItem);
-    } else if (deleteBtn) {
-        handleConversationDelete(conversationItem);
+    if (event.target.closest('.rename-btn')) {
+        handleConversationRename(item);
+    } else if (event.target.closest('.delete-btn')) {
+        handleConversationDelete(item);
     } else {
-        await loadConversation(conversationItem.dataset.convId);
+        await loadConversation(item.dataset.convId);
+        if (item.dataset.workspace) {
+            setWorkspace(item.dataset.workspace);
+        }
     }
 }
 
-function handleConversationRename(conversationItem) {
-    const nameText = conversationItem.querySelector('.name-text');
-    const nameEdit = conversationItem.querySelector('.name-edit');
-    
+function handleConversationRename(item) {
+    const nameText = item.querySelector('.name-text');
+    const nameEdit = item.querySelector('.name-edit');
     nameText.style.display = 'none';
     nameEdit.style.display = 'block';
     nameEdit.focus();
@@ -355,130 +891,78 @@ function handleConversationRename(conversationItem) {
     const saveRename = async () => {
         const newName = nameEdit.value.trim();
         if (!newName) return;
-
         try {
-            const response = await fetch('/rename-conversation', {
+            const resp = await fetch('/rename-conversation', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: new URLSearchParams({
-                    conversation_id: conversationItem.dataset.convId,
-                    name: newName
-                })
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ conversation_id: item.dataset.convId, name: newName })
             });
-
-            if (response.ok) {
+            if (resp.ok) {
                 nameText.textContent = newName;
                 nameText.style.display = 'block';
                 nameEdit.style.display = 'none';
-            } else {
-                throw new Error('Failed to rename conversation');
             }
-        } catch (error) {
-            console.error('Error renaming conversation:', error);
-            // Revert changes
+        } catch (e) {
             nameEdit.value = nameText.textContent;
         }
     };
 
     nameEdit.addEventListener('blur', saveRename);
     nameEdit.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            saveRename();
-        }
+        if (e.key === 'Enter') { e.preventDefault(); saveRename(); }
     });
 }
 
-function handleConversationDelete(conversationItem) {
+function handleConversationDelete(item) {
     showConfirmDialog(
         'Delete Conversation',
-        'Are you sure you want to delete this conversation? This action cannot be undone.',
+        'Are you sure you want to delete this conversation?',
         async () => {
             try {
-                const response = await fetch('/delete-conversation', {
+                const resp = await fetch('/delete-conversation', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: new URLSearchParams({
-                        conversation_id: conversationItem.dataset.convId
-                    })
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ conversation_id: item.dataset.convId })
                 });
-
-                if (response.ok) {
-                    conversationItem.remove();
-                    if (currentConversationIdInput.value === conversationItem.dataset.convId) {
-                        newConversationBtn.click();
+                if (resp.ok) {
+                    item.remove();
+                    if (currentConversationIdInput.value === item.dataset.convId) {
+                        currentConversationIdInput.value = '';
+                        showWelcomeScreen();
                     }
-                } else {
-                    throw new Error('Failed to delete conversation');
                 }
-            } catch (error) {
-                console.error('Error deleting conversation:', error);
+            } catch (e) {
+                console.error('Delete failed:', e);
             }
         }
     );
 }
 
 function detectLanguage(filePath) {
-    const extensions = {
-        '.py': 'python',
-        '.js': 'javascript',
-        '.html': 'html',
-        '.css': 'css',
-        '.json': 'json',
-        '.md': 'markdown',
-        '.sql': 'sql',
-        '.yml': 'yaml',
-        '.yaml': 'yaml',
-        '.xml': 'xml',
-        '.sh': 'bash',
-        '.bash': 'bash',
-        '.ts': 'typescript',
-        '.jsx': 'jsx',
-        '.tsx': 'tsx'
-    };
-    
     const ext = '.' + filePath.split('.').pop().toLowerCase();
-    return extensions[ext] || 'plaintext';
+    const map = {
+        '.py': 'python', '.js': 'javascript', '.html': 'html', '.css': 'css',
+        '.json': 'json', '.md': 'markdown', '.sql': 'sql', '.yml': 'yaml',
+        '.yaml': 'yaml', '.xml': 'xml', '.sh': 'bash', '.bash': 'bash',
+        '.ts': 'typescript', '.jsx': 'jsx', '.tsx': 'tsx', '.go': 'go',
+        '.rs': 'rust', '.java': 'java', '.cs': 'csharp', '.cpp': 'cpp', '.c': 'c'
+    };
+    return map[ext] || 'plaintext';
 }
 
 async function loadConversation(conversationId) {
     try {
-        const response = await fetch(`/load-conversation/${conversationId}`);
-        const data = await response.json();
-        
+        const resp = await fetch(`/load-conversation/${conversationId}`);
+        const data = await resp.json();
+
         currentConversationIdInput.value = conversationId;
-        
         const container = getConversationContainer();
         container.innerHTML = '';
-        
-        // Process messages and their associated artifacts
+
         data.messages.forEach(message => {
-            // Create message element
-            const messageElement = createMessageElement(message);
-            container.appendChild(messageElement);
-            
-            // Find artifacts associated with this message's timestamp
-            const messageArtifacts = data.artifacts.filter(artifact => 
-                new Date(artifact.timestamp).getTime() >= new Date(message.timestamp).getTime() &&
-                new Date(artifact.timestamp).getTime() <= new Date(message.timestamp).getTime() + 1000
-            );
-            
-            // Create artifact elements
-            messageArtifacts.forEach(artifact => {
-                const artifactElement = createCodeArtifact(
-                    artifact.content,
-                    artifact.language,
-                    false // Not latest since we're loading history
-                );
-                container.appendChild(artifactElement);
-            });
+            container.appendChild(createMessageElement(message));
         });
 
-        // Update token counters
         if (data.tokens) {
             updateTokenCounters({
                 total_input_tokens: data.tokens.total_input_tokens,
@@ -487,388 +971,129 @@ async function loadConversation(conversationId) {
             });
         }
 
-        // Process any project contexts
-        if (data.contexts && data.contexts.length > 0) {
-            data.contexts.forEach(context => {
-                const contextButton = document.createElement('button');
-                contextButton.className = 'context-file-button';
-                contextButton.innerHTML = `
-                    <i class="fas fa-file-code"></i>
-                    ${context.file_path}
-                `;
-                contextButton.addEventListener('click', () => {
-                    createContextWindow(
-                        context.file_content,
-                        context.file_type || detectLanguage(context.file_path),
-                        context.file_path
-                    );
-                });
-                container.insertBefore(contextButton, container.firstChild);
-            });
+        if (data.workspace_path) {
+            setWorkspace(data.workspace_path);
         }
 
         container.scrollTop = container.scrollHeight;
-    } catch (error) {
-        console.error('Error loading conversation:', error);
-        showErrorMessage('Failed to load conversation');
+        loadContextFiles();
+    } catch (e) {
+        console.error('Error loading conversation:', e);
+        showToast('Failed to load conversation', 'error');
     }
 }
 
-// Form Submission
+// ─── Form Submission ─────────────────────────────────────────────────────────
 async function handleFormSubmit(event) {
     event.preventDefault();
-    
     const formData = new FormData(event.target);
     const prompt = formData.get('prompt');
-    
-    if (!prompt.trim()) {
-        return; // Don't submit empty prompts
-    }
-    
+    if (!prompt.trim()) return;
+
     processingOverlay.classList.add('active');
-    
+
     try {
-        // Handle new conversation creation
         if (!currentConversationIdInput.value) {
             const conversationName = generateConversationName(prompt);
-            const response = await fetch('/new-conversation', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: new URLSearchParams({
-                    name: conversationName
-                })
-            });
-            
-            if (!response.ok) {
-                throw new Error('Failed to create new conversation');
+            const body = new URLSearchParams({ name: conversationName });
+            if (currentWorkspacePath) {
+                body.append('workspace_path', currentWorkspacePath);
             }
-            
-            const data = await response.json();
+            const resp = await fetch('/new-conversation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body
+            });
+            if (!resp.ok) throw new Error('Failed to create new conversation');
+            const data = await resp.json();
             currentConversationIdInput.value = data.conversation_id;
-            
-            // Add new conversation to list
-            const newConversationItem = createConversationListItem(data);
-            conversationList.insertBefore(newConversationItem, conversationList.firstChild);
+            const newItem = createConversationListItem(data);
+            conversationList.insertBefore(newItem, conversationList.firstChild);
+
+            const container = getConversationContainer();
+            const welcome = container.querySelector('.welcome-screen');
+            if (welcome) welcome.remove();
         }
-        
-        // Add conversation ID to form data
+
         formData.set('conversation_id', currentConversationIdInput.value);
-        
-        // Process the prompt
-        const response = await fetch('/process', {
-            method: 'POST',
-            body: formData
-        });
 
-        if (!response.ok) {
-            throw new Error('Failed to process request');
-        }
+        const resp = await fetch('/process', { method: 'POST', body: formData });
+        if (!resp.ok) throw new Error('Failed to process request');
 
-        const data = await response.json();
+        const data = await resp.json();
         const container = getConversationContainer();
-        
-        // Add user message
-        const userMessage = createMessageElement({
-            role: 'user',
-            content: prompt,
+
+        container.appendChild(createMessageElement({
+            role: 'user', content: prompt,
             formatted_time: new Date().toLocaleTimeString()
-        });
-        container.appendChild(userMessage);
+        }));
 
-        // Add assistant message with artifacts
-        const assistantMessage = createMessageElement({
-            role: 'assistant',
-            content: data.response,
+        container.appendChild(createMessageElement({
+            role: 'assistant', content: data.response,
             formatted_time: data.timestamp
-        }, data.artifacts);
-        container.appendChild(assistantMessage);
+        }));
 
-        // Process code artifacts
         if (data.artifacts && data.artifacts.length > 0) {
             data.artifacts.forEach((artifact, index) => {
-                const artifactElement = createCodeArtifact(
-                    artifact.content,
-                    artifact.language,
-                    index === data.artifacts.length - 1 // Show latest artifact
-                );
-                container.appendChild(artifactElement);
+                container.appendChild(createCodeArtifact(
+                    artifact.content, artifact.language,
+                    artifact.file_path,
+                    index === data.artifacts.length - 1
+                ));
             });
         }
 
-        // Update token counters
         updateTokenCounters(data.total_tokens);
-
-        // Clear inputs
         event.target.reset();
         fileNameSpan.textContent = 'Attach File';
-
-        // Scroll to bottom
         container.scrollTop = container.scrollHeight;
-
-    } catch (error) {
-        console.error('Error:', error);
-        const errorMessage = createMessageElement({
-            role: 'error',
-            content: error.message,
+    } catch (e) {
+        console.error('Error:', e);
+        getConversationContainer().appendChild(createMessageElement({
+            role: 'error', content: e.message,
             formatted_time: new Date().toLocaleTimeString()
-        });
-        getConversationContainer().appendChild(errorMessage);
+        }));
     } finally {
         processingOverlay.classList.remove('active');
     }
 }
 
-// Token Counter Updates
+// ─── Token Counters ──────────────────────────────────────────────────────────
 function updateTokenCounters(tokens) {
     if (tokens) {
-        inputTokensSpan.textContent = tokens.total_input_tokens;
-        outputTokensSpan.textContent = tokens.total_output_tokens;
-        totalTokensSpan.textContent = tokens.total_tokens;
+        inputTokensSpan.textContent = tokens.total_input_tokens || 0;
+        outputTokensSpan.textContent = tokens.total_output_tokens || 0;
+        totalTokensSpan.textContent = tokens.total_tokens || 0;
     }
 }
 
 function generateConversationName(prompt) {
-    // Take first sentence or first 40 characters
     let name = prompt.split(/[.!?]/)[0].trim();
-    if (name.length > 40) {
-        name = name.substring(0, 37) + '...';
-    }
+    if (name.length > 40) name = name.substring(0, 37) + '...';
     return name || 'New Chat';
 }
 
-// Event Listeners
-function initializeEventListeners() {
-    toggleSidebarBtn.addEventListener('click', () => {
-        sidebar.classList.toggle('collapsed');
-        const icon = toggleSidebarBtn.querySelector('i');
-        icon.classList.toggle('fa-chevron-left');
-        icon.classList.toggle('fa-chevron-right');
-    });
-
-    newConversationBtn.addEventListener('click', async () => {
-        try {
-            const response = await fetch('/new-conversation', {
-                method: 'POST',
-                body: new FormData()
-            });
-            const data = await response.json();
-            
-            // Update current conversation ID
-            currentConversationIdInput.value = data.conversation_id;
-            
-            // Clear conversation container
-            const container = getConversationContainer();
-            container.innerHTML = '';
-            
-            // Clear form inputs
-            codeForm.reset();
-            fileNameSpan.textContent = 'Attach File';
-            
-            // Reset token counters
-            updateTokenCounters({
-                total_input_tokens: 0,
-                total_output_tokens: 0,
-                total_tokens: 0
-            });
-
-            // Add new conversation to list
-            const newConversationItem = createConversationListItem(data);
-            conversationList.insertBefore(newConversationItem, conversationList.firstChild);
-        } catch (error) {
-            console.error('Error creating new conversation:', error);
-        }
-    });
-
-    createContextWindowBtn.addEventListener('click', () => {
-        const container = getConversationContainer();
-        const currentContent = container.textContent.trim();
-        if (currentContent) {
-            createContextWindow(currentContent, 'text', 'Conversation Context');
-        }
-    });
-
-    // Add this to the file input change handler in script.js
-fileInput.addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (file) {
-        fileNameSpan.textContent = file.name;
-        // Add file type indicator
-        const fileType = file.name.split('.').pop().toLowerCase();
-        fileNameSpan.className = `file-name file-type-${fileType}`;
-        
-        // Show file size
-        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-        const sizeIndicator = document.createElement('span');
-        sizeIndicator.className = 'file-size';
-        sizeIndicator.textContent = `${sizeMB}MB`;
-        fileNameSpan.appendChild(sizeIndicator);
-        
-        // Add warning if file is large
-        if (file.size > 1024 * 1024) { // 1MB
-            const warning = document.createElement('span');
-            warning.className = 'file-warning';
-            warning.innerHTML = `
-                <i class="fas fa-info-circle"></i>
-                Large file will be compressed to optimize token usage
-            `;
-            fileNameSpan.appendChild(warning);
-        }
-    } else {
-        fileNameSpan.textContent = 'Attach File';
-        fileNameSpan.className = 'file-name';
-    }
-});
-
-    codeForm.addEventListener('submit', handleFormSubmit);
-    
-    toggleThemeBtn.addEventListener('click', toggleTheme);
-
-    // Handle keyboard shortcuts
-    document.addEventListener('keydown', (e) => {
-        // Ctrl/Cmd + / to toggle sidebar
-        if ((e.ctrlKey || e.metaKey) && e.key === '/') {
-            e.preventDefault();
-            toggleSidebarBtn.click();
-        }
-        
-        // Ctrl/Cmd + N for new conversation
-        if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-            e.preventDefault();
-            newConversationBtn.click();
-        }
-        
-        // Escape to close context window
-        if (e.key === 'Escape') {
-            const contextWindow = document.querySelector('.context-window');
-            if (contextWindow) {
-                contextWindow.remove();
-            }
-        }
-    });
-
-    // Handle window resize for responsive layout
-    window.addEventListener('resize', () => {
-        if (window.innerWidth < 768) {
-            sidebar.classList.add('collapsed');
-        }
-    });
-
-    // Handle drag and drop file upload
-    const dropZone = document.querySelector('.prompt-area');
-    
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        dropZone.addEventListener(eventName, preventDefaults, false);
-    });
-
-    function preventDefaults(e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-
-    ['dragenter', 'dragover'].forEach(eventName => {
-        dropZone.addEventListener(eventName, () => {
-            dropZone.classList.add('drag-active');
-        });
-    });
-
-    ['dragleave', 'drop'].forEach(eventName => {
-        dropZone.addEventListener(eventName, () => {
-            dropZone.classList.remove('drag-active');
-        });
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-        const files = e.dataTransfer.files;
-        if (files.length) {
-            fileInput.files = files;
-            const event = new Event('change');
-            fileInput.dispatchEvent(event);
-        }
-    });
-}
-
-// Add delete confirmation dialog
-function showDeleteConfirmation(conversationItem) {
-    const dialog = document.createElement('div');
-    dialog.className = 'delete-confirmation';
-    dialog.innerHTML = `
-        <div class="delete-confirmation-content">
-            <p>Delete this conversation?</p>
-            <div class="delete-confirmation-actions">
-                <button class="cancel-btn">Cancel</button>
-                <button class="confirm-btn">Delete</button>
-            </div>
-        </div>
-    `;
-    
-    conversationItem.appendChild(dialog);
-    
-    const cancelBtn = dialog.querySelector('.cancel-btn');
-    const confirmBtn = dialog.querySelector('.confirm-btn');
-    
-    cancelBtn.addEventListener('click', () => {
-        dialog.remove();
-    });
-    
-    confirmBtn.addEventListener('click', async () => {
-        try {
-            const response = await fetch('/delete-conversation', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: new URLSearchParams({
-                    conversation_id: conversationItem.dataset.convId
-                })
-            });
-
-            if (response.ok) {
-                conversationItem.remove();
-                if (currentConversationIdInput.value === conversationItem.dataset.convId) {
-                    newConversationBtn.click();
-                }
-            } else {
-                throw new Error('Failed to delete conversation');
-            }
-        } catch (error) {
-            console.error('Error deleting conversation:', error);
-        }
-    });
-}
-
-// Helper Functions
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 function createConversationListItem(data) {
     const item = document.createElement('div');
     item.className = 'conversation-item';
     item.dataset.convId = data.conversation_id;
-    
+    item.dataset.workspace = data.workspace_path || '';
+    const wsName = data.workspace_path ? data.workspace_path.split(/[/\\]/).filter(Boolean).pop() : '';
     item.innerHTML = `
         <div class="conversation-info">
             <div class="conversation-name">
                 <span class="name-text">${data.name}</span>
                 <input type="text" class="name-edit" value="${data.name}" style="display: none;">
             </div>
-            <small class="conversation-timestamp">${data.timestamp}</small>
+            <small class="conversation-timestamp">${data.timestamp || ''}</small>
+            ${wsName ? `<small class="conversation-workspace"><i class="fas fa-folder"></i> ${wsName}</small>` : ''}
         </div>
         <div class="conversation-actions">
-            <button class="icon-btn small rename-btn" title="Rename">
-                <i class="fas fa-pencil"></i>
-            </button>
-            <button class="icon-btn small delete-btn" title="Delete">
-                <i class="fas fa-trash"></i>
-            </button>
+            <button class="icon-btn small rename-btn" title="Rename"><i class="fas fa-pencil"></i></button>
+            <button class="icon-btn small delete-btn" title="Delete"><i class="fas fa-trash"></i></button>
         </div>
     `;
-    
-    // Add delete confirmation handling
-    const deleteBtn = item.querySelector('.delete-btn');
-    deleteBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        showDeleteConfirmation(item);
-    });
-    
     return item;
 }
 
@@ -876,28 +1101,109 @@ function showWelcomeScreen() {
     const container = getConversationContainer();
     container.innerHTML = `
         <div class="welcome-screen">
-            <i class="fas fa-code-branch welcome-icon"></i>
-            <h2>Welcome to CodeChat</h2>
-            <p>Start a new conversation to begin coding with AI assistance.</p>
-            <button onclick="newConversationBtn.click()" class="primary-btn">
-                <i class="fas fa-plus"></i>
-                New Conversation
-            </button>
+            <i class="fas fa-terminal welcome-icon"></i>
+            <h2>CodeChat Agent</h2>
+            <p>Select a workspace and start coding with your AI agent.</p>
+            <div class="welcome-actions">
+                <button onclick="document.getElementById('browse-workspace-btn').click()" class="primary-btn">
+                    <i class="fas fa-folder-open"></i> Select Workspace
+                </button>
+                <button onclick="document.getElementById('new-conversation-btn').click()" class="secondary-btn">
+                    <i class="fas fa-plus"></i> New Chat
+                </button>
+            </div>
         </div>
     `;
 }
 
-// Initialize Application
+// ─── Event Listeners ─────────────────────────────────────────────────────────
+function initializeEventListeners() {
+    newConversationBtn.addEventListener('click', async () => {
+        try {
+            const body = new URLSearchParams({ name: 'New Chat' });
+            if (currentWorkspacePath) body.append('workspace_path', currentWorkspacePath);
+            const resp = await fetch('/new-conversation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body
+            });
+            const data = await resp.json();
+            currentConversationIdInput.value = data.conversation_id;
+            getConversationContainer().innerHTML = '';
+            codeForm.reset();
+            fileNameSpan.textContent = 'Attach File';
+            updateTokenCounters({ total_input_tokens: 0, total_output_tokens: 0, total_tokens: 0 });
+            conversationList.insertBefore(createConversationListItem(data), conversationList.firstChild);
+        } catch (e) {
+            console.error('Error creating conversation:', e);
+        }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            fileNameSpan.textContent = file.name;
+            const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+            if (file.size > 1024 * 1024) {
+                fileNameSpan.title = `${sizeMB}MB - will be compressed`;
+            }
+        } else {
+            fileNameSpan.textContent = 'Attach File';
+        }
+    });
+
+    codeForm.addEventListener('submit', handleFormSubmit);
+    toggleThemeBtn.addEventListener('click', toggleTheme);
+
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+            e.preventDefault();
+            document.getElementById('toggle-sidebar').click();
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+            e.preventDefault();
+            newConversationBtn.click();
+        }
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.context-window').forEach(w => w.remove());
+            imageLightbox.style.display = 'none';
+            fileViewerModal.style.display = 'none';
+            browseModal.style.display = 'none';
+        }
+    });
+
+    const dropZone = document.querySelector('.prompt-area');
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(ev => {
+        dropZone.addEventListener(ev, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
+    });
+    ['dragenter', 'dragover'].forEach(ev => {
+        dropZone.addEventListener(ev, () => dropZone.classList.add('drag-active'));
+    });
+    ['dragleave', 'drop'].forEach(ev => {
+        dropZone.addEventListener(ev, () => dropZone.classList.remove('drag-active'));
+    });
+    dropZone.addEventListener('drop', (e) => {
+        const files = e.dataTransfer.files;
+        if (files.length) {
+            fileInput.files = files;
+            fileInput.dispatchEvent(new Event('change'));
+        }
+    });
+}
+
+// ─── Initialize Application ──────────────────────────────────────────────────
 function initializeApplication() {
     initializeTheme();
-    initializePrismJS();
+    initializeSidebar();
+    initializeSidebarTabs();
+    initializeWorkspace();
+    initializeBrowseModal();
+    initializeFileTree();
+    initializeLightbox();
+    initializeFileViewer();
     initializeConversationHandlers();
     initializeEventListeners();
-    initializeSidebar();
-    
-    // Show welcome message instead of creating new conversation
     showWelcomeScreen();
 }
 
-// Start the application
 document.addEventListener('DOMContentLoaded', initializeApplication);
